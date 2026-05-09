@@ -565,6 +565,10 @@ class GoogleSheetService {
   }
 
   Future<AccountProfile?> getStoredAccountProfile(String email) async {
+    if (kIsWeb) {
+      return null;
+    }
+
     final normalizedEmail = _normalizeFileSegment(email);
     if (normalizedEmail.isEmpty) {
       return null;
@@ -940,6 +944,11 @@ class GoogleSheetService {
       return;
     }
 
+    if (kIsWeb) {
+      _persistentCacheLoaded = true;
+      return;
+    }
+
     final inventoryPayload = await _readStoredPayload(_inventoryFileName);
     final inventoryData = inventoryPayload?['data'];
     if (inventoryData is List) {
@@ -1021,6 +1030,10 @@ class GoogleSheetService {
   }
 
   Future<Map<String, dynamic>?> _readStoredPayload(String fileName) async {
+    if (kIsWeb) {
+      return null;
+    }
+
     final file = await _getDataFile(fileName);
     if (!await file.exists()) {
       return null;
@@ -1043,11 +1056,19 @@ class GoogleSheetService {
     String fileName,
     Map<String, dynamic> payload,
   ) async {
+    if (kIsWeb) {
+      return;
+    }
+
     final file = await _getDataFile(fileName);
     await file.writeAsString(jsonEncode(payload), flush: true);
   }
 
   Future<void> _deleteStoredFile(String fileName) async {
+    if (kIsWeb) {
+      return;
+    }
+
     final file = await _getDataFile(fileName);
     if (await file.exists()) {
       await file.delete();
