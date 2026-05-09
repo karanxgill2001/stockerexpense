@@ -20,6 +20,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
   final TextEditingController _skuController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _costPriceController = TextEditingController();
+  final FocusNode _skuFocusNode = FocusNode();
   List<InventoryItem> _inventoryItems = const [];
   bool _isSubmitting = false;
 
@@ -35,6 +36,7 @@ class _AddStockScreenState extends State<AddStockScreen> {
   void dispose() {
     CurrencySettingsService.changes.removeListener(_handleCurrencyChanged);
     _skuController.removeListener(_handleSkuChanged);
+    _skuFocusNode.dispose();
     _itemNameController.dispose();
     _skuController.dispose();
     _quantityController.dispose();
@@ -219,6 +221,9 @@ class _AddStockScreenState extends State<AddStockScreen> {
               const SizedBox(height: 18),
               _SkuBarcodeField(
                 controller: _skuController,
+                focusNode: _skuFocusNode,
+                inventoryItems: _inventoryItems,
+                onSelected: _applyExistingItemDetails,
                 onScanTap: _scanBarcode,
               ),
               const SizedBox(height: 18),
@@ -448,9 +453,18 @@ class _ScanBarcodeCard extends StatelessWidget {
 }
 
 class _SkuBarcodeField extends StatelessWidget {
-  const _SkuBarcodeField({required this.controller, required this.onScanTap});
+  const _SkuBarcodeField({
+    required this.controller,
+    required this.focusNode,
+    required this.inventoryItems,
+    required this.onSelected,
+    required this.onScanTap,
+  });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
+  final List<InventoryItem> inventoryItems;
+  final ValueChanged<String> onSelected;
   final VoidCallback onScanTap;
 
   @override
@@ -474,24 +488,149 @@ class _SkuBarcodeField extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: 'EL-2024-001',
-                    hintStyle: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(
-                          color: const Color(0xFFC7CFCA),
-                          fontWeight: FontWeight.w700,
+                child: RawAutocomplete<InventoryItem>(
+                  textEditingController: controller,
+                  focusNode: focusNode,
+                  displayStringForOption: (option) => option.sku,
+                  optionsBuilder: (textEditingValue) {
+                    final query = textEditingValue.text.trim().toLowerCase();
+                    if (query.isEmpty) {
+                      return const Iterable<InventoryItem>.empty();
+                    }
+
+                    final seenSkus = <String>{};
+                    final matches = inventoryItems.where((item) {
+                      final sku = item.sku.trim();
+                      if (sku.isEmpty) {
+                        return false;
+                      }
+
+                      final normalizedSku = sku.toLowerCase();
+                      if (!seenSkus.add(normalizedSku)) {
+                        return false;
+                      }
+
+                      return normalizedSku.contains(query) ||
+                          item.itemName.trim().toLowerCase().contains(query);
+                    }).toList(growable: false)
+                      ..sort((left, right) {
+                        final leftSku = left.sku.trim().toLowerCase();
+                        final rightSku = right.sku.trim().toLowerCase();
+                        final leftStarts = leftSku.startsWith(query);
+                        final rightStarts = rightSku.startsWith(query);
+                        if (leftStarts != rightStarts) {
+                          return leftStarts ? -1 : 1;
+                        }
+
+                        return leftSku.compareTo(rightSku);
+                      });
+
+                    return matches.take(6);
+                  },
+                  onSelected: (option) {
+                    controller.value = TextEditingValue(
+                      text: option.sku,
+                      selection: TextSelection.collapsed(
+                        offset: option.sku.length,
+                      ),
+                    );
+                    onSelected(option.sku);
+                  },
+                  fieldViewBuilder: (
+                    context,
+                    textEditingController,
+                    fieldFocusNode,
+                    onFieldSubmitted,
+                  ) {
+                    return TextField(
+                      controller: textEditingController,
+                      focusNode: fieldFocusNode,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: 'EL-2024-001',
+                        hintStyle: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: const Color(0xFFC7CFCA),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: _AddStockScreenState._textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    );
+                  },
+                  optionsViewBuilder: (context, onOptionSelected, options) {
+                    final optionList = options.toList(growable: false);
+                    if (optionList.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 8,
+                        color: Colors.transparent,
+                        child: Container(
+                          width: MediaQuery.of(context).size.width - 116,
+                          margin: const EdgeInsets.only(top: 10),
+                          decoration: BoxDecoration(
+                            color: _AddStockScreenState._surfaceLowest,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: const Color(0x1400342D),
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x12000000),
+                                blurRadius: 16,
+                                offset: Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shrinkWrap: true,
+                            itemCount: optionList.length,
+                            separatorBuilder: (context, index) => const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                            itemBuilder: (context, index) {
+                              final option = optionList[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  option.sku,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        color:
+                                            _AddStockScreenState._textPrimary,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                                subtitle: Text(
+                                  option.itemName,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: _AddStockScreenState
+                                            ._textSecondary,
+                                      ),
+                                ),
+                                onTap: () => onOptionSelected(option),
+                              );
+                            },
+                          ),
                         ),
-                  ),
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: _AddStockScreenState._textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
