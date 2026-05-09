@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import 'screens/settings_app_version.dart';
 import 'screens/finance_hub.dart';
@@ -25,7 +26,9 @@ import 'widgets/design_loader.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppUpdateService.instance.cleanupPendingDownloadedApkOnStartup();
+  if (!kIsWeb) {
+    await AppUpdateService.instance.cleanupPendingDownloadedApkOnStartup();
+  }
   await AppModeService.initialize();
   await CurrencySettingsService.initialize();
   await FinanceCurrencySettingsService.initialize();
@@ -244,6 +247,10 @@ class _AppStartGateState extends State<_AppStartGate> {
   }
 
   Future<void> _handleStartupExperience({required bool staySignedIn}) async {
+    if (kIsWeb) {
+      return;
+    }
+
     try {
       final releaseNotes = await AppUpdateService.instance
           .getStartupReleaseNotesIfNeeded();
@@ -273,6 +280,10 @@ class _AppStartGateState extends State<_AppStartGate> {
   }
 
   Future<void> _showStartupUpdatePrompt() async {
+    if (kIsWeb) {
+      return;
+    }
+
     try {
       final status = await AppUpdateService.instance.checkForUpdate();
       if (!mounted || !status.isAvailable) {

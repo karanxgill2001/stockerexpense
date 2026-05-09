@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/account_profile.dart';
@@ -72,7 +73,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadFinanceCurrencySetting();
     _loadInvoiceTemplateSetting();
     _loadInvoiceLogoSetting();
-    _loadAppVersion();
+    if (!kIsWeb) {
+      _loadAppVersion();
+    } else {
+      _appVersionSummary = 'Not available in web app';
+    }
   }
 
   bool get _hasCustomLink => (_overrideLink ?? '').trim().isNotEmpty;
@@ -936,13 +941,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: _backendSummary,
                   onTap: _openBackendSettings,
                 ),
-                const _SettingsDivider(),
-                _SettingsRow(
-                  icon: Icons.info_outline_rounded,
-                  title: 'App Version',
-                  subtitle: _appVersionSummary,
-                  onTap: _openAppVersion,
-                ),
+                if (!kIsWeb) ...[
+                  const _SettingsDivider(),
+                  _SettingsRow(
+                    icon: Icons.info_outline_rounded,
+                    title: 'App Version',
+                    subtitle: _appVersionSummary,
+                    onTap: _openAppVersion,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 22),
