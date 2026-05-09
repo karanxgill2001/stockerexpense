@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:install_plugin/install_plugin.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -110,6 +111,12 @@ class AppUpdateService {
     AppUpdateInfo info, {
     void Function(double progress)? onProgress,
   }) async {
+    if (kIsWeb) {
+      throw const AppUpdateException(
+        'APK download is not supported in the web app.',
+      );
+    }
+
     if (!info.hasDownloadLink) {
       throw const AppUpdateException('APK download link is missing.');
     }
@@ -155,7 +162,7 @@ class AppUpdateService {
   }
 
   Future<PermissionStatus> ensureInstallPermission() async {
-    if (!Platform.isAndroid) {
+    if (kIsWeb || !Platform.isAndroid) {
       return PermissionStatus.granted;
     }
 
@@ -169,6 +176,10 @@ class AppUpdateService {
   }
 
   Future<void> cleanupPendingDownloadedApkOnStartup() async {
+    if (kIsWeb) {
+      return;
+    }
+
     final preferences = await SharedPreferences.getInstance();
     final storedPath =
         preferences.getString(_downloadedFilePathKey)?.trim() ?? '';
@@ -192,7 +203,7 @@ class AppUpdateService {
     required String filePath,
     required String appId,
   }) async {
-    if (!Platform.isAndroid) {
+    if (kIsWeb || !Platform.isAndroid) {
       throw const AppUpdateException(
         'APK installation is only available on Android.',
       );
@@ -212,6 +223,10 @@ class AppUpdateService {
   }
 
   Future<File?> getDownloadedFileForLink(String link) async {
+    if (kIsWeb) {
+      return null;
+    }
+
     if (link.trim().isEmpty) {
       return null;
     }

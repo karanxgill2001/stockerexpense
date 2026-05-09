@@ -1092,6 +1092,10 @@ class GoogleSheetService {
   }
 
   Future<File> _getDataFile(String fileName) async {
+    if (kIsWeb) {
+      throw UnsupportedError('Local file cache is not available on web.');
+    }
+
     final directory = await _getDataDirectory();
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -1101,6 +1105,10 @@ class GoogleSheetService {
   }
 
   Future<Directory> _getDataDirectory() async {
+    if (kIsWeb) {
+      throw UnsupportedError('Local file cache is not available on web.');
+    }
+
     Directory? baseDirectory;
     if (Platform.isAndroid) {
       baseDirectory = await getExternalStorageDirectory();
